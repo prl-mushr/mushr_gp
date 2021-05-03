@@ -1,6 +1,4 @@
 # Parameters for global planner
-
-
 perimeter: [[-.2, -.235], [.2, -.235], [.2, .235], [-.2, .235]]
 goal_tol: [0.5, 0.5, 0.1]
 vel: 0.5

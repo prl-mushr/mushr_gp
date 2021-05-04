@@ -1,14 +1,30 @@
 #!/usr/bin/env python
+
+"""
+Global Planner for Mushr Navigation.
+
+Author: Doerr, Schiffer
+"""
+
 import numpy as np
 import rospy
 import yaml
 from geometry_msgs.msg import PoseStamped
 from nav_msgs.msg import OccupancyGrid, Path
-from pysbpl import map_util, planner, plot
+from pysbpl import planner
 
 
 class GlobalPlanner:
+    """ROS Wrapper for pysbpl Planner."""
+
     def __init__(self, name):
+        """
+        Initialize global planner.
+
+        Attributes:
+            name (string) rosnode name
+
+        """
         rospy.init_node(name, anonymous=True)
 
         self.start = None
@@ -40,10 +56,17 @@ class GlobalPlanner:
         rate = rospy.Rate(3)
         while not rospy.is_shutdown():
             rate.sleep()
-            if self.path != None:
-                self.path_publisher.publish(path)
+            if self.path is not None:
+                self.path_publisher.publish(self.path)
 
     def goal_cb(self, msg):
+        """
+        Plan a path from recorded start to new goal.
+
+        Attributes:
+            msg (geometry_msgs/PoseStamped): goal position
+
+        """
         self.params["map"] = self.map
         self.params["perimeter"] = [
             [-0.2, -0.235],
@@ -51,7 +74,9 @@ class GlobalPlanner:
             [0.2, 0.235],
             [-0.2, 0.235],
         ]
-        self.params["mprim_path"] = (rospy.get_param("~mprim_path")).encode("utf-8")
+
+        mprim_path = rospy.get_param("~mprim_path")
+        self.params["mprim_path"] = mprim_path.encode("utf-8")
         goal = [msg.pose.position.x, msg.pose.position.y, msg.pose.position.z]
 
         print("Planning with pysbpl")
@@ -65,14 +90,37 @@ class GlobalPlanner:
         print("Path created: " + path)
 
     def set_start_cb(self, msg):
+        """
+        Record the new car position as the start.
+
+        Attributes:
+            msg (geometry_msgs/PoseStamped): goal position
+
+        """
         self.start = [msg.pose.position.x, msg.pose.position.y, msg.pose.position.z]
 
     def set_map_cb(self, msg):
+        """
+        Load and save the map.
+
+        Attributes:
+            msg (nav_msgs/OccupancyGrid): map representation
+
+        """
         self.map.load_map(msg)
 
 
 class Map:
+    """Costmap Representation."""
+
     def load_map(self, occ_grid):
+        """
+        Transform occuppancy grid into costmap.
+
+        Attributes:
+            occ_grid (nav_msgs/OccupancyGrid): occupancy grid to convert to costmap
+
+        """
         self.width = occ_grid.info.width
         self.height = occ_grid.info.height
 
@@ -94,4 +142,4 @@ class Map:
 
 
 if __name__ == "__main__":
-    planner = GlobalPlanner("global_planner")
+    global_planner = GlobalPlanner("global_planner")

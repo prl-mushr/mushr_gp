@@ -85,9 +85,9 @@ class GlobalPlanner:
 
         sbpl_planner = planner.Planner(**self.params)
 
-        path = sbpl_planner.plan(self.start, goal, allocated_time=10)
+        path, headings, actions = sbpl_planner.plan(self.start, goal, allocated_time=10)
 
-        print("Path created: " + path)
+        print("Path created: {}".format(path))
 
     def set_start_cb(self, msg):
         """
@@ -126,13 +126,15 @@ class Map:
 
         # TODO: make a way not to hardcode this
         self.resolution = 0.050000  # occ_grid.info.resolution
-        self.origin = [
-            occ_grid.info.origin.position.x,
-            occ_grid.info.origin.position.y,
-            occ_grid.info.origin.position.z,
-        ]
-        self.occupied_thresh = 0.65
-        self.free_thresh = 0.196
+        # TODO adjust origin and map img when resize resolution
+        self.origin = [-25, -25, 0] # sandbox
+        #self.origin = [
+        #    occ_grid.info.origin.position.x,
+        #    occ_grid.info.origin.position.y,
+        #    occ_grid.info.origin.position.z,
+        #]
+        self.occupied_thresh = 0.1 # sandbox
+        self.free_thresh = 0.09 # sandbox
 
         # reformat map into 2D array with values [0, 1]
         self.img = np.reshape(occ_grid.data, (self.height, self.width))

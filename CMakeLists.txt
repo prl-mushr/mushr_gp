@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.0.2)
 
-project(gp)
+project(mushr_gp)
 
 find_package(catkin REQUIRED COMPONENTS
   rospy
@@ -10,8 +10,6 @@ find_package(catkin REQUIRED COMPONENTS
   visualization_msgs
   message_generation
 )
-
-catkin_python_setup()
 
 catkin_package()
 

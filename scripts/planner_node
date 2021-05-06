@@ -11,7 +11,7 @@ import rospy
 import yaml
 from geometry_msgs.msg import PoseStamped
 from nav_msgs.msg import OccupancyGrid, Path
-from pysbpl import planner, map_util
+from pysbpl import map_util, planner
 
 
 class GlobalPlanner:
@@ -31,7 +31,7 @@ class GlobalPlanner:
 
         self.start = None
         self.path = None
-        self.map = map_util.Map(mprim_path=self.mprim_path) 
+        self.map = map_util.Map(mprim_path=self.mprim_path)
 
         # initialize subscribers
         self.goal_sub = rospy.Subscriber(
@@ -109,7 +109,9 @@ class GlobalPlanner:
             msg (nav_msgs/OccupancyGrid): map representation
 
         """
-        img = np.array(np.reshape(msg.data, (msg.info.height, msg.info.width)), dtype=np.float32)
+        img = np.array(
+            np.reshape(msg.data, (msg.info.height, msg.info.width)), dtype=np.float32
+        )
         img[img == -1] = 1
         origin = [
             msg.info.origin.position.x,
@@ -117,6 +119,7 @@ class GlobalPlanner:
             msg.info.origin.position.z,
         ]
         self.map.load_map(img, msg.info.resolution, origin, 0.1, 0.09)
+
 
 if __name__ == "__main__":
     global_planner = GlobalPlanner("global_planner")

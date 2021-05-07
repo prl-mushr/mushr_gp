@@ -8,6 +8,8 @@ Author: Doerr, Schiffer
 
 import numpy as np
 import rospy
+import std_msgs
+import tf
 import yaml
 from geometry_msgs.msg import PoseStamped
 from nav_msgs.msg import OccupancyGrid, Path
@@ -31,6 +33,7 @@ class GlobalPlanner:
 
         self.start = None
         self.path = None
+        self.sbpl_planner = None
         self.map = map_util.Map(mprim_path=self.mprim_path)
 
         # initialize subscribers
@@ -55,6 +58,15 @@ class GlobalPlanner:
         config_file = open(rospy.get_param("~config_path"))
         self.params = yaml.load(config_file)
 
+        self.params["perimeter"] = [
+            [-0.2, -0.235],
+            [0.2, -0.235],
+            [0.2, 0.235],
+            [-0.2, 0.235],
+        ]
+
+        self.params["mprim_path"] = self.mprim_path.encode("utf-8")
+
         rate = rospy.Rate(3)
         while not rospy.is_shutdown():
             rate.sleep()
@@ -69,27 +81,39 @@ class GlobalPlanner:
             msg (geometry_msgs/PoseStamped): goal position
 
         """
-        self.params["map"] = self.map
-        self.params["perimeter"] = [
-            [-0.2, -0.235],
-            [0.2, -0.235],
-            [0.2, 0.235],
-            [-0.2, 0.235],
-        ]
-
-        self.params["mprim_path"] = self.mprim_path.encode("utf-8")
         goal = [msg.pose.position.x, msg.pose.position.y, msg.pose.position.z]
 
-        print("Planning with pysbpl")
-        print("Start: " + str(self.start))
-        print("Goal: " + str(goal))
+        rate = rospy.Rate(3)
+        if self.sbpl_planner is None:
+            print("Waiting for a map")
+            rate = rospy.Rate(1)
+            while self.sbpl_planner is None:
+                rate.sleep()
+            print("Map found")
 
-        # TODO will want to do this only once with big maps
-        sbpl_planner = planner.Planner(**self.params)
+        path, headings, actions = self.sbpl_planner.plan(self.start, goal, allocated_time=10)
 
-        path, headings, actions = sbpl_planner.plan(self.start, goal, allocated_time=10)
+        path_plan = Path()       
+        path_plan.header = std_msgs.msg.Header()
+        path_plan.header.stamp = rospy.Time.now()
 
-        print("Path created: {}".format(path))
+        for i, point in enumerate(path):
+            angle = headings[i]
+            pose = PoseStamped()
+            pose.pose.position.x = point[0]
+            pose.pose.position.y = point[1]
+            pose.pose.position.z = 0
+
+            quaternion = tf.transformations.quaternion_from_euler(0, 0, angle)
+            pose.pose.orientation.x = quaternion[0]
+            pose.pose.orientation.y = quaternion[1]
+            pose.pose.orientation.z = quaternion[2]
+            pose.pose.orientation.w = quaternion[3]
+            path_plan.poses.append(pose)
+
+        self.path = path_plan
+        self.path_publisher.publish(path_plan)
+        print("Path published with length " + str(len(path)))
 
     def set_start_cb(self, msg):
         """
@@ -119,6 +143,10 @@ class GlobalPlanner:
             msg.info.origin.position.z,
         ]
         self.map.load_map(img, msg.info.resolution, origin, 0.1, 0.09)
+        self.params["map"] = self.map
+
+        if self.sbpl_planner is None:
+            self.sbpl_planner = planner.Planner(**self.params)
 
 
 if __name__ == "__main__":

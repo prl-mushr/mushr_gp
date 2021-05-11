@@ -1,7 +1,7 @@
 # Global Planner
 [![build-test](https://github.com/prl-mushr/mushr_gp/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/prl-mushr/mushr_gp/actions)
 
-This module hosts the global planner for the MuSHR system. It replaces the previous Halton point planner with a search-based planner. Search based methods have two parts - first, the planning problem and environment must be represented by a graph, and then the graph must be solved. This MuSHR global planner builds upon the [SBPL repo](https://github.com/sbpl/sbpl) by Search-Based Planning Lab at Carnegie Mellon University. MuSHR specifically makes use of the [ARA* planning algorithm](https://en.wikipedia.org/wiki/Anytime_A*) and uses an environment which assumes the robot operates in the (x, y, θ) space.
+This ROS package hosts the global planner for the MuSHR system. It wraps a search-based planner from SBPL. Search based methods have two parts - first, the planning problem and environment must be represented by a graph, and then the graph must be searched from a starting point to a goal. This MuSHR global planner builds upon the [SBPL repo](https://github.com/sbpl/sbpl) by Search-Based Planning Lab at Carnegie Mellon University. MuSHR specifically makes use of the [ARA* planning algorithm](https://en.wikipedia.org/wiki/Anytime_A*) and plans on an implicit graph in a SE2 (x, y, θ) state space.
 
 ## Tutorial
 The following [tutorial](https://mushr.io/tutorials/navigation/) goes through installing/running the car.
@@ -11,7 +11,7 @@ Make sure you install [pysbpl](https://github.com/schmittlema/pysbpl) into your 
 
 Clone [this](https://github.com/prl-mushr/mushr_gp) repo into `~/catkin_ws/src`
 
-Make sure that you have the TensorFlow dependency installed: `pip install tf`
+Make sure that you have the tf2 dependency installed: `sudo apt install ros-melodic-tf2`
 
 You should be good to go!
 
@@ -28,12 +28,3 @@ Topic | Type | Description
 `/map`|[nav_msgs/OccupancyGrid](http://docs.ros.org/en/melodic/api/nav_msgs/html/msg/OccupancyGrid.html)|Uses the provided occupancy grid as the graph for planning.
 `/goal_topic`|[geometry_msgs/PoseStamped](http://docs.ros.org/api/geometry_msgs/html/msg/PoseStamped.html)|Goal to compute path to.
 `/start_topic`|[geometry_msgs/PoseStamped](http://docs.ros.org/api/geometry_msgs/html/msg/PoseStamped.html)|Starting location of the path being computed.
-
-Dev Tools:  
-
-`pip install black isort flake8`
-
-To run:  
-`isort .`  
-`black .`  
-`flake8 . --count --max-complexity=18 --max-line-length=127 --show-source --statistics --docstring-convention google --ignore=D212,D415,D205,D410,D411`

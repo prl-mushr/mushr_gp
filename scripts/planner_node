@@ -6,6 +6,7 @@ Global Planner for Mushr Navigation.
 Author: Doerr, Schiffer
 """
 
+import cv2
 import numpy as np
 import rospy
 import std_msgs
@@ -81,7 +82,6 @@ class GlobalPlanner:
             msg (geometry_msgs/PoseStamped): goal position
 
         """
-        goal = [msg.pose.position.x, msg.pose.position.y, msg.pose.position.z]
 
         rate = rospy.Rate(3)
         if self.sbpl_planner is None:
@@ -91,11 +91,13 @@ class GlobalPlanner:
                 rate.sleep()
             print("Map found")
 
+        goal = [msg.pose.position.x, msg.pose.position.y, msg.pose.position.z]
         path, headings, actions = self.sbpl_planner.plan(self.start, goal, allocated_time=10)
 
         path_plan = Path()       
         path_plan.header = std_msgs.msg.Header()
         path_plan.header.stamp = rospy.Time.now()
+        path_plan.header.frame_id = "map"
 
         for i, point in enumerate(path):
             angle = headings[i]
@@ -136,7 +138,9 @@ class GlobalPlanner:
         img = np.array(
             np.reshape(msg.data, (msg.info.height, msg.info.width)), dtype=np.float32
         )
-        img[img == -1] = 1
+        img[img == -1] = 0
+        # cv2.imshow("img", img)
+        # cv2.waitKey()
         origin = [
             msg.info.origin.position.x,
             msg.info.origin.position.y,

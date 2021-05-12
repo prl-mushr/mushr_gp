@@ -5,7 +5,7 @@
     <arg name="goal_topic" default="/move_base_simple/goal" />
     <arg name="map" default="/map" />
     <arg name="car_name" default="car" />
-    <arg name="config_path" default="$(find mushr_gp)/config/parameters.yaml" />
+    <arg name="config_path" default="$(find mushr_gp)/config/config.yaml" />
     <arg name="mprim_path" default="$(find mushr_gp)/mprim/mushr.mprim" />
 
     <group ns="$(arg car_name)">

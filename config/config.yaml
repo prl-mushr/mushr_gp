@@ -1,8 +1,9 @@
 # Parameters for global planner
 perimeter: [[-.2, -.235], [.2, -.235], [.2, .235], [-.2, .235]]
-goal_tol: [0.5, 0.5, 0.1]
 vel: 0.5
 time_45_deg: 10
-obs_thresh: 200
-inscribed_thresh: 200
-possibly_circumscribed_thresh: 200
+obs_thresh: 1 
+inscribed_thresh: 1 
+possibly_circumscribed_thresh: 0
+initial_epsilon: 3.0
+unknown_is_occupied: True

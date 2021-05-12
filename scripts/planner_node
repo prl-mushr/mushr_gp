@@ -84,6 +84,14 @@ class GlobalPlanner:
             msg (geometry_msgs/PoseStamped): goal position
 
         """
+        rate = rospy.Rate(3)
+        if self.sbpl_planner is None:
+            print("Waiting for a map")
+            rate = rospy.Rate(1)
+            while self.sbpl_planner is None:
+                rate.sleep()
+            print("Map found")
+
         theta = tf.transformations.euler_from_quaternion(
             [
                 msg.pose.orientation.x,
@@ -93,14 +101,6 @@ class GlobalPlanner:
             ]
         )
         goal = [msg.pose.position.x, msg.pose.position.y, theta[2]]
-
-        rate = rospy.Rate(3)
-        if self.sbpl_planner is None:
-            print("Waiting for a map")
-            rate = rospy.Rate(1)
-            while self.sbpl_planner is None:
-                rate.sleep()
-            print("Map found")
 
         path, headings, actions = self.sbpl_planner.plan(
             self.start, goal, allocated_time=10, init_eps=self.params["initial_epsilon"]

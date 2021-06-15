@@ -11,7 +11,7 @@ Make sure you install [pysbpl](https://github.com/schmittlema/pysbpl) into your 
 
 Clone [this](https://github.com/prl-mushr/mushr_gp) repo into `~/catkin_ws/src`
 
-Make sure that you have the tf2 dependency installed: `sudo apt install ros-melodic-tf2`
+Make sure that you have the tf dependency installed: `sudo apt install ros-melodic-tf`
 
 You should be good to go!
 

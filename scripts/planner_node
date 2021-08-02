@@ -104,7 +104,7 @@ class GlobalPlanner:
         )
         goal = [msg.pose.position.x, msg.pose.position.y, theta[2]]
 
-        path, headings, actions = self.sbpl_planner.plan(
+        path, actions = self.sbpl_planner.plan(
             self.start, goal, allocated_time=10, init_eps=self.params["initial_epsilon"]
         )
 
@@ -118,13 +118,12 @@ class GlobalPlanner:
         path_plan.header.frame_id = "map"
 
         for i, point in enumerate(path):
-            angle = headings[i]
             pose = PoseStamped()
             pose.pose.position.x = point[0]
             pose.pose.position.y = point[1]
             pose.pose.position.z = 0
 
-            quaternion = tf.transformations.quaternion_from_euler(0, 0, angle)
+            quaternion = tf.transformations.quaternion_from_euler(0, 0, point[2])
             pose.pose.orientation.x = quaternion[0]
             pose.pose.orientation.y = quaternion[1]
             pose.pose.orientation.z = quaternion[2]

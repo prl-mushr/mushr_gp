@@ -3,14 +3,28 @@ cmake_minimum_required(VERSION 3.0.2)
 project(mushr_gp)
 
 find_package(catkin REQUIRED COMPONENTS
+  roscpp
   rospy
   std_msgs
   vesc_msgs
   geometry_msgs
   visualization_msgs
   message_generation
+  tf2
 )
+
+find_package(SBPL REQUIRED)
+
+find_package(OpenCV REQUIRED)
 
 catkin_package()
 
+include_directories(
+  ${catkin_INCLUDE_DIRS}
+  ${SBPL_INCLUDE_DIRS}
+  ${OpenCV_INCLUDE_DIRS}
+)
 
+add_executable(planner_node src/planner.cpp)
+
+target_link_libraries(planner_node ${catkin_LIBRARIES} ${SBPL_LIBRARIES} ${OpenCV_LIBS} yaml-cpp)

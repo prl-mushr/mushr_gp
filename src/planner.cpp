@@ -199,7 +199,7 @@ class PlannerNode
                 convert(goal_pose_->pose.orientation, quat);
                 goal_id_ = env_->SetGoal(goal_pose_->pose.position.x - map_meta_data_->origin.position.x,
                                          goal_pose_->pose.position.y - map_meta_data_->origin.position.y,
-                                         getYaw(quat - getYaw(map_quat)));
+                                         getYaw(quat) - getYaw(map_quat));
             }
         }
         else

@@ -63,16 +63,13 @@ class PlannerNode
     uint thetas_;
 
     public:
-    // static constexpr double REPLAN_TIME = 1.0;  
-    // static const bool SEARCH_MODE = false;   
-    // static constexpr double INITIAL_EPS = 3.0;  // a ratio of how close the first valid solution should be to the optimal solution
-    // static const bool FORWARD_SEARCH = false;  // 
-    // static const bool UPDATE_COSTMAP = false;  // If this is true, the costmap changes, and should be dynamically updated
-
     PlannerNode(NodeHandle nh)
     {
+        string car_pos;
+        nh.getParam("/car/global_planner/car_pos", car_pos);
+        
         path_pub_ = nh.advertise<nav_msgs::Path>("/path", 1);
-        start_sub_ = nh.subscribe("/car/car_pose", 1000, &PlannerNode::start_cb, this);
+        start_sub_ = nh.subscribe(car_pos.c_str(), 1000, &PlannerNode::start_cb, this);
         goal_sub_ = nh.subscribe("/move_base_simple/goal", 1000, &PlannerNode::goal_cb, this);
         map_sub_ = nh.subscribe("/map", 1000, &PlannerNode::map_cb, this);
 

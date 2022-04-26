@@ -7,7 +7,7 @@
 #include "nav_msgs/MapMetaData.h"
 #include "nav_msgs/Path.h"
 #include <tf2/impl/utils.h>
-#include <opencv4/opencv2/opencv.hpp>
+#include <opencv2/opencv.hpp>
 #include <yaml-cpp/yaml.h>
 #include <fstream>
 #include <iostream>

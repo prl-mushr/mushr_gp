@@ -4,12 +4,6 @@ project(mushr_gp)
 
 find_package(catkin REQUIRED COMPONENTS
   roscpp
-  rospy
-  std_msgs
-  vesc_msgs
-  geometry_msgs
-  visualization_msgs
-  message_generation
   tf2
 )
 

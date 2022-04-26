@@ -185,19 +185,21 @@ class PlannerNode
             return;
         }
         Quaternion quat;
+        Quaternion map_quat;
+        convert(map_meta_data_->origin.orientation, map_quat);
         if (is_start)
         {
             convert(car_pose_->pose.orientation, quat);
             start_id_ = env_->SetStart(car_pose_->pose.position.x - map_meta_data_->origin.position.x,
                                        car_pose_->pose.position.y - map_meta_data_->origin.position.y,
-                                       getYaw(quat));
+                                       getYaw(quat) - getYaw(map_quat));
             // IF THE MAP IS ROTATED THIS WILL BREAK! WE NEED TO IMPLEMENT ROTATION ALONG WITH TRANSLATION
             if (goal_pose_ != nullptr)
             {
                 convert(goal_pose_->pose.orientation, quat);
                 goal_id_ = env_->SetGoal(goal_pose_->pose.position.x - map_meta_data_->origin.position.x,
                                          goal_pose_->pose.position.y - map_meta_data_->origin.position.y,
-                                         getYaw(quat));
+                                         getYaw(quat - getYaw(map_quat)));
             }
         }
         else
@@ -205,13 +207,13 @@ class PlannerNode
             convert(goal_pose_->pose.orientation, quat);
             goal_id_ = env_->SetGoal(goal_pose_->pose.position.x - map_meta_data_->origin.position.x,
                                      goal_pose_->pose.position.y - map_meta_data_->origin.position.y,
-                                     getYaw(quat));
+                                     getYaw(quat) - getYaw(map_quat));
             if (car_pose_ != nullptr)
             {
                 convert(car_pose_->pose.orientation, quat);
                 start_id_ = env_->SetStart(car_pose_->pose.position.x - map_meta_data_->origin.position.x,
                                            car_pose_->pose.position.y - map_meta_data_->origin.position.y,
-                                           getYaw(quat));
+                                           getYaw(quat) - getYaw(map_quat));
             }
         }
         if (planner_ != nullptr)

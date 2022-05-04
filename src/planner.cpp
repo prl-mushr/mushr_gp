@@ -67,11 +67,15 @@ class PlannerNode
     {
         string car_pos;
         nh.getParam("/car/global_planner/car_pos", car_pos);
+        string goal_pos;
+        nh.getParam("/car/global_planner/goal_pos", goal_pos);
+        string map;
+        nh.getParam("/map", map);
         
         path_pub_ = nh.advertise<nav_msgs::Path>("/path", 1);
         start_sub_ = nh.subscribe(car_pos.c_str(), 1000, &PlannerNode::start_cb, this);
-        goal_sub_ = nh.subscribe("/move_base_simple/goal", 1000, &PlannerNode::goal_cb, this);
-        map_sub_ = nh.subscribe("/map", 1000, &PlannerNode::map_cb, this);
+        goal_sub_ = nh.subscribe(goal_pos.c_str(), 1000, &PlannerNode::goal_cb, this);
+        map_sub_ = nh.subscribe(map.c_str(), 1000, &PlannerNode::map_cb, this);
 
         car_pose_ = nullptr;
         goal_pose_ = nullptr;

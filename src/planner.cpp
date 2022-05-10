@@ -66,13 +66,15 @@ class PlannerNode
     PlannerNode(NodeHandle nh)
     {
         string car_pos;
-        nh.getParam("/car/global_planner/car_pos", car_pos);
+        nh.getParam("global_planner/start_topic", car_pos);
         string goal_pos;
-        nh.getParam("/car/global_planner/goal_pos", goal_pos);
+        nh.getParam("global_planner/goal_topic", goal_pos);
         string map;
-        nh.getParam("/map", map);
+        nh.getParam("global_planner/map", map);
+        string path;
+        nh.getParam("global_planner/path_topic", path);
         
-        path_pub_ = nh.advertise<nav_msgs::Path>("/path", 1);
+        path_pub_ = nh.advertise<nav_msgs::Path>(path.c_str(), 1);
         start_sub_ = nh.subscribe(car_pos.c_str(), 1000, &PlannerNode::start_cb, this);
         goal_sub_ = nh.subscribe(goal_pos.c_str(), 1000, &PlannerNode::goal_cb, this);
         map_sub_ = nh.subscribe(map.c_str(), 1000, &PlannerNode::map_cb, this);
@@ -191,33 +193,47 @@ class PlannerNode
         Quaternion quat;
         Quaternion map_quat;
         convert(map_meta_data_->origin.orientation, map_quat);
+        geometry_msgs::TransformStamped translation;
+        geometry_msgs::TransformStamped rotation;
+
+
+        geometry_msgs::Vector3 vec;
+        vec.x = -map_meta_data_->origin.position.x;
+        vec.y = -map_meta_data_->origin.position.y;
+        vec.z = -map_meta_data_->origin.position.z;
+        rotation.transform.rotation = map_meta_data_->origin.orientation;
+        rotation.transform.rotation.w *= -1;
+        translation.transform.translation = vec;
+        translation.transform.rotation.w = 1;
+        PoseStamped local_car_pose = *car_pose_;
+        PoseStamped actual;
+        Quaternion quatty;
         if (is_start)
         {
-            convert(car_pose_->pose.orientation, quat);
-            start_id_ = env_->SetStart(car_pose_->pose.position.x - map_meta_data_->origin.position.x,
-                                       car_pose_->pose.position.y - map_meta_data_->origin.position.y,
-                                       getYaw(quat) - getYaw(map_quat));
-            // IF THE MAP IS ROTATED THIS WILL BREAK! WE NEED TO IMPLEMENT ROTATION ALONG WITH TRANSLATION
+            tf2::doTransform(*car_pose_, actual, translation);
+            tf2::doTransform(actual, actual, rotation);
+            convert(actual.pose.orientation, quatty);
+            start_id_ = env_->SetStart(actual.pose.position.x, actual.pose.position.y, getYaw(quatty));
             if (goal_pose_ != nullptr)
             {
-                convert(goal_pose_->pose.orientation, quat);
-                goal_id_ = env_->SetGoal(goal_pose_->pose.position.x - map_meta_data_->origin.position.x,
-                                         goal_pose_->pose.position.y - map_meta_data_->origin.position.y,
-                                         getYaw(quat) - getYaw(map_quat));
+                tf2::doTransform(*goal_pose_, actual, translation);
+                tf2::doTransform(actual, actual, rotation);
+                convert(actual.pose.orientation, quatty);
+                goal_id_ = env_->SetGoal(actual.pose.position.x, actual.pose.position.y, getYaw(quatty));
             }
         }
         else
         {
-            convert(goal_pose_->pose.orientation, quat);
-            goal_id_ = env_->SetGoal(goal_pose_->pose.position.x - map_meta_data_->origin.position.x,
-                                     goal_pose_->pose.position.y - map_meta_data_->origin.position.y,
-                                     getYaw(quat) - getYaw(map_quat));
+            tf2::doTransform(*goal_pose_, actual, translation);
+            tf2::doTransform(actual, actual, rotation);
+            convert(actual.pose.orientation, quatty);
+            goal_id_ = env_->SetGoal(actual.pose.position.x, actual.pose.position.y, getYaw(quatty));
             if (car_pose_ != nullptr)
             {
-                convert(car_pose_->pose.orientation, quat);
-                start_id_ = env_->SetStart(car_pose_->pose.position.x - map_meta_data_->origin.position.x,
-                                           car_pose_->pose.position.y - map_meta_data_->origin.position.y,
-                                           getYaw(quat) - getYaw(map_quat));
+                tf2::doTransform(*car_pose_, actual, translation);
+                tf2::doTransform(actual, actual, rotation);
+                convert(actual.pose.orientation, quatty);
+                start_id_ = env_->SetStart(actual.pose.position.x, actual.pose.position.y, getYaw(quatty));
             }
         }
         if (planner_ != nullptr)
@@ -265,15 +281,32 @@ class PlannerNode
             pubPath.poses.reserve(path_->size());
             for (sbpl_xy_theta_pt_t pt : converted_path)
             {
+                // pose initially represents the output from SBPL directly
                 PoseStamped pose;
-                pose.pose.position.x = pt.x + map_meta_data_->origin.position.x;
-                pose.pose.position.y = pt.y + map_meta_data_->origin.position.y;
+                pose.pose.position.x = pt.x;
+                pose.pose.position.y = pt.y;
                 Quaternion quat;
                 quat.setEuler(pt.theta, 0, 0);
                 pose.pose.orientation.w = quat.getW();
                 pose.pose.orientation.x = quat.getX();
                 pose.pose.orientation.y = quat.getY();
                 pose.pose.orientation.z = quat.getZ();
+
+                // create the transforms we need
+                geometry_msgs::TransformStamped rotation;
+                rotation.transform.rotation = map_meta_data_->origin.orientation;
+
+                geometry_msgs::TransformStamped translation;
+                geometry_msgs::Vector3 vec;
+                vec.x = map_meta_data_->origin.position.x;
+                vec.y = map_meta_data_->origin.position.y;
+                vec.z = map_meta_data_->origin.position.z;
+                translation.transform.translation = vec;
+                translation.transform.rotation.w = 1;
+
+                // finally, do the sequence of transforms and append them to the path
+                tf2::doTransform(pose, pose, rotation);
+                tf2::doTransform(pose, pose, translation);
                 pubPath.poses.push_back(pose);
             }
             ROS_INFO("Solution found! Publishing...");

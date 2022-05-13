@@ -15,7 +15,7 @@
 using cv::Mat;
 using geometry_msgs::PoseStamped;
 using geometry_msgs::TransformStamped;
-using geometry_msgs::Vec3;
+using geometry_msgs::Vector3;
 using nav_msgs::MapMetaData;
 using ros::NodeHandle;
 using ros::Publisher;
@@ -294,11 +294,11 @@ class PlannerNode
                 pose.pose.orientation.z = quat.getZ();
 
                 // create the transforms we need
-                geometry_msgs::TransformStamped rotation;
+                TransformStamped rotation;
                 rotation.transform.rotation = map_meta_data_->origin.orientation;
 
-                geometry_msgs::TransformStamped translation;
-                geometry_msgs::Vector3 vec;
+                TransformStamped translation;
+                Vector3 vec;
                 vec.x = map_meta_data_->origin.position.x;
                 vec.y = map_meta_data_->origin.position.y;
                 vec.z = map_meta_data_->origin.position.z;

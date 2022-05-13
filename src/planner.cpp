@@ -143,13 +143,12 @@ class PlannerNode
 
     void start_cb(const geometry_msgs::PoseStamped& msg)
     {
+        car_pose_.reset(new PoseStamped(msg));
         if (car_pose_ == nullptr || (regular_replan_ && pose_counter_ % regular_replan_freq_ == 0))
         {
-            car_pose_.reset(new PoseStamped(msg));
             processState(true);
         }
-        if (regular_replan_)
-            pose_counter_++;
+        pose_counter_++;
     }
 
     void goal_cb(const geometry_msgs::PoseStamped& msg)

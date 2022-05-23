@@ -11,4 +11,6 @@ replan_time: 3.0
 initial_eps: 3.0
 forward_search: False
 update_costmap: False
+regular_replan: False
+regular_replan_freq: 100
 search_mode: False

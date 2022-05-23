@@ -14,6 +14,8 @@
 
 using cv::Mat;
 using geometry_msgs::PoseStamped;
+using geometry_msgs::TransformStamped;
+using geometry_msgs::Vector3;
 using nav_msgs::MapMetaData;
 using ros::NodeHandle;
 using ros::Publisher;
@@ -24,8 +26,6 @@ using std::ios;
 using std::string;
 using std::unique_ptr;
 using std::vector;
-using tf2::convert;
-using tf2::impl::getYaw;
 using tf2::Quaternion;
 using YAML::Node;
 
@@ -58,6 +58,8 @@ class PlannerNode
     bool search_mode_;               // if true, search until a solution is found. If false, try to find and improve a solution for replan_time_ seconds
     bool forward_search_;            // if the planner should search forwards or backwards
     bool update_costmap_;            // if true, the costmap will be updated dynamically, if false, only at the beginning
+    bool regular_replan_;            // if true, the replan upon recieving regular_replan_freq_ car_pose_ updates.
+    int regular_replan_freq_;        // how many car_pose_ updates to wait for before replanning, if regular_replan_ is true
 
     float motion_res_;               
     uint thetas_;
@@ -122,6 +124,8 @@ class PlannerNode
         forward_search_ = config_file["forward_search"].as<bool>();
         update_costmap_ = config_file["update_costmap"].as<bool>();
         search_mode_ = config_file["search_mode"].as<bool>();
+        regular_replan_ = config_file["regular_replan"].as<bool>();
+        regular_replan_freq_ = config_file["regular_replan_freq"].as<int>();
         perimeter_.reserve(config_file["perimeter"].size());
         for (size_t i = 0; i < config_file["perimeter"].size(); i++) {
             sbpl_2Dpt_t pt;
@@ -140,8 +144,10 @@ class PlannerNode
     void start_cb(const geometry_msgs::PoseStamped& msg)
     {
         car_pose_.reset(new PoseStamped(msg));
-        if (pose_counter_ % 100 == 0)
+        if (car_pose_ == nullptr || (regular_replan_ && pose_counter_ % regular_replan_freq_ == 0))
+        {
             processState(true);
+        }
         pose_counter_++;
     }
 
@@ -185,19 +191,14 @@ class PlannerNode
         if (env_ == nullptr)
         {
             if (is_start)
-                ROS_INFO("recieved car_pose, but environment isn't loaded");
+                ROS_INFO("Recieved car_pose, but environment isn't loaded");
             else
-                ROS_INFO("recieved goal_pose, but environment isn't loaded");
+                ROS_INFO("Recieved goal_pose, but environment isn't loaded");
             return;
         }
-        Quaternion quat;
-        Quaternion map_quat;
-        convert(map_meta_data_->origin.orientation, map_quat);
-        geometry_msgs::TransformStamped translation;
-        geometry_msgs::TransformStamped rotation;
-
-
-        geometry_msgs::Vector3 vec;
+        TransformStamped translation;
+        TransformStamped rotation;
+        Vector3 vec;
         vec.x = -map_meta_data_->origin.position.x;
         vec.y = -map_meta_data_->origin.position.y;
         vec.z = -map_meta_data_->origin.position.z;
@@ -205,35 +206,34 @@ class PlannerNode
         rotation.transform.rotation.w *= -1;
         translation.transform.translation = vec;
         translation.transform.rotation.w = 1;
-        PoseStamped local_car_pose = *car_pose_;
         PoseStamped actual;
         Quaternion quatty;
         if (is_start)
         {
             tf2::doTransform(*car_pose_, actual, translation);
             tf2::doTransform(actual, actual, rotation);
-            convert(actual.pose.orientation, quatty);
-            start_id_ = env_->SetStart(actual.pose.position.x, actual.pose.position.y, getYaw(quatty));
+            tf2::convert(actual.pose.orientation, quatty);
+            start_id_ = env_->SetStart(actual.pose.position.x, actual.pose.position.y, tf2::impl::getYaw(quatty));
             if (goal_pose_ != nullptr)
             {
                 tf2::doTransform(*goal_pose_, actual, translation);
                 tf2::doTransform(actual, actual, rotation);
-                convert(actual.pose.orientation, quatty);
-                goal_id_ = env_->SetGoal(actual.pose.position.x, actual.pose.position.y, getYaw(quatty));
+                tf2::convert(actual.pose.orientation, quatty);
+                goal_id_ = env_->SetGoal(actual.pose.position.x, actual.pose.position.y, tf2::impl::getYaw(quatty));
             }
         }
         else
         {
             tf2::doTransform(*goal_pose_, actual, translation);
             tf2::doTransform(actual, actual, rotation);
-            convert(actual.pose.orientation, quatty);
-            goal_id_ = env_->SetGoal(actual.pose.position.x, actual.pose.position.y, getYaw(quatty));
+            tf2::convert(actual.pose.orientation, quatty);
+            goal_id_ = env_->SetGoal(actual.pose.position.x, actual.pose.position.y, tf2::impl::getYaw(quatty));
             if (car_pose_ != nullptr)
             {
                 tf2::doTransform(*car_pose_, actual, translation);
                 tf2::doTransform(actual, actual, rotation);
-                convert(actual.pose.orientation, quatty);
-                start_id_ = env_->SetStart(actual.pose.position.x, actual.pose.position.y, getYaw(quatty));
+                tf2::convert(actual.pose.orientation, quatty);
+                start_id_ = env_->SetStart(actual.pose.position.x, actual.pose.position.y, tf2::impl::getYaw(quatty));
             }
         }
         if (planner_ != nullptr)
@@ -293,11 +293,11 @@ class PlannerNode
                 pose.pose.orientation.z = quat.getZ();
 
                 // create the transforms we need
-                geometry_msgs::TransformStamped rotation;
+                TransformStamped rotation;
                 rotation.transform.rotation = map_meta_data_->origin.orientation;
 
-                geometry_msgs::TransformStamped translation;
-                geometry_msgs::Vector3 vec;
+                TransformStamped translation;
+                Vector3 vec;
                 vec.x = map_meta_data_->origin.position.x;
                 vec.y = map_meta_data_->origin.position.y;
                 vec.z = map_meta_data_->origin.position.z;

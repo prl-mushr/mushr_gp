@@ -10,7 +10,7 @@
 
     <group ns="$(arg car_name)">
         <node pkg="mushr_gp" type="planner_node" name="global_planner" output="screen">
-            <param name="path_topic" value="$(arg path_topic)" />
+            <param name="path_topic" value="/$(arg car_name)$(arg path_topic)" />
             <param name="start_topic" value="/$(arg car_name)$(arg start_topic)" />
             <param name="goal_topic" value="$(arg goal_topic)" />
             <param name="config_path" value="$(arg config_path)" />

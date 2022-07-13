@@ -283,6 +283,7 @@ class PlannerNode
             {
                 // pose initially represents the output from SBPL directly
                 PoseStamped pose;
+                pose.header.frame_id = "map";
                 pose.pose.position.x = pt.x;
                 pose.pose.position.y = pt.y;
                 Quaternion quat;

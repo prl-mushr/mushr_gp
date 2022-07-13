@@ -283,7 +283,6 @@ class PlannerNode
             {
                 // pose initially represents the output from SBPL directly
                 PoseStamped pose;
-                pose.header.frame_id = "map";
                 pose.pose.position.x = pt.x;
                 pose.pose.position.y = pt.y;
                 Quaternion quat;
@@ -308,6 +307,7 @@ class PlannerNode
                 // finally, do the sequence of transforms and append them to the path
                 tf2::doTransform(pose, pose, rotation);
                 tf2::doTransform(pose, pose, translation);
+                pose.header.frame_id = "map";
                 pubPath.poses.push_back(pose);
             }
             ROS_INFO("Solution found! Publishing...");

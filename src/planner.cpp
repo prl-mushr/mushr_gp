@@ -7,13 +7,15 @@
 #include "nav_msgs/MapMetaData.h"
 #include "nav_msgs/Path.h"
 #include <tf2/impl/utils.h>
-#include <opencv4/opencv2/opencv.hpp>
+#include <opencv2/opencv.hpp>
 #include <yaml-cpp/yaml.h>
 #include <fstream>
 #include <iostream>
 
 using cv::Mat;
 using geometry_msgs::PoseStamped;
+using geometry_msgs::TransformStamped;
+using geometry_msgs::Vector3;
 using nav_msgs::MapMetaData;
 using ros::NodeHandle;
 using ros::Publisher;
@@ -24,8 +26,6 @@ using std::ios;
 using std::string;
 using std::unique_ptr;
 using std::vector;
-using tf2::convert;
-using tf2::impl::getYaw;
 using tf2::Quaternion;
 using YAML::Node;
 
@@ -58,23 +58,28 @@ class PlannerNode
     bool search_mode_;               // if true, search until a solution is found. If false, try to find and improve a solution for replan_time_ seconds
     bool forward_search_;            // if the planner should search forwards or backwards
     bool update_costmap_;            // if true, the costmap will be updated dynamically, if false, only at the beginning
+    bool regular_replan_;            // if true, the replan upon recieving regular_replan_freq_ car_pose_ updates.
+    int regular_replan_freq_;        // how many car_pose_ updates to wait for before replanning, if regular_replan_ is true
 
     float motion_res_;               
     uint thetas_;
 
     public:
-    // static constexpr double REPLAN_TIME = 1.0;  
-    // static const bool SEARCH_MODE = false;   
-    // static constexpr double INITIAL_EPS = 3.0;  // a ratio of how close the first valid solution should be to the optimal solution
-    // static const bool FORWARD_SEARCH = false;  // 
-    // static const bool UPDATE_COSTMAP = false;  // If this is true, the costmap changes, and should be dynamically updated
-
     PlannerNode(NodeHandle nh)
     {
-        path_pub_ = nh.advertise<nav_msgs::Path>("/path", 1);
-        start_sub_ = nh.subscribe("/car/car_pose", 1000, &PlannerNode::start_cb, this);
-        goal_sub_ = nh.subscribe("/move_base_simple/goal", 1000, &PlannerNode::goal_cb, this);
-        map_sub_ = nh.subscribe("/map", 1000, &PlannerNode::map_cb, this);
+        string car_pos;
+        nh.getParam("global_planner/start_topic", car_pos);
+        string goal_pos;
+        nh.getParam("global_planner/goal_topic", goal_pos);
+        string map;
+        nh.getParam("global_planner/map", map);
+        string path;
+        nh.getParam("global_planner/path_topic", path);
+        
+        path_pub_ = nh.advertise<nav_msgs::Path>(path.c_str(), 1);
+        start_sub_ = nh.subscribe(car_pos.c_str(), 1000, &PlannerNode::start_cb, this);
+        goal_sub_ = nh.subscribe(goal_pos.c_str(), 1000, &PlannerNode::goal_cb, this);
+        map_sub_ = nh.subscribe(map.c_str(), 1000, &PlannerNode::map_cb, this);
 
         car_pose_ = nullptr;
         goal_pose_ = nullptr;
@@ -119,6 +124,8 @@ class PlannerNode
         forward_search_ = config_file["forward_search"].as<bool>();
         update_costmap_ = config_file["update_costmap"].as<bool>();
         search_mode_ = config_file["search_mode"].as<bool>();
+        regular_replan_ = config_file["regular_replan"].as<bool>();
+        regular_replan_freq_ = config_file["regular_replan_freq"].as<int>();
         perimeter_.reserve(config_file["perimeter"].size());
         for (size_t i = 0; i < config_file["perimeter"].size(); i++) {
             sbpl_2Dpt_t pt;
@@ -137,8 +144,10 @@ class PlannerNode
     void start_cb(const geometry_msgs::PoseStamped& msg)
     {
         car_pose_.reset(new PoseStamped(msg));
-        if (pose_counter_ % 100 == 0)
+        if (car_pose_ == nullptr || (regular_replan_ && pose_counter_ % regular_replan_freq_ == 0))
+        {
             processState(true);
+        }
         pose_counter_++;
     }
 
@@ -182,39 +191,49 @@ class PlannerNode
         if (env_ == nullptr)
         {
             if (is_start)
-                ROS_INFO("recieved car_pose, but environment isn't loaded");
+                ROS_INFO("Recieved car_pose, but environment isn't loaded");
             else
-                ROS_INFO("recieved goal_pose, but environment isn't loaded");
+                ROS_INFO("Recieved goal_pose, but environment isn't loaded");
             return;
         }
-        Quaternion quat;
+        TransformStamped translation;
+        TransformStamped rotation;
+        Vector3 vec;
+        vec.x = -map_meta_data_->origin.position.x;
+        vec.y = -map_meta_data_->origin.position.y;
+        vec.z = -map_meta_data_->origin.position.z;
+        rotation.transform.rotation = map_meta_data_->origin.orientation;
+        rotation.transform.rotation.w *= -1;
+        translation.transform.translation = vec;
+        translation.transform.rotation.w = 1;
+        PoseStamped actual;
+        Quaternion quatty;
         if (is_start)
         {
-            convert(car_pose_->pose.orientation, quat);
-            start_id_ = env_->SetStart(car_pose_->pose.position.x - map_meta_data_->origin.position.x,
-                                       car_pose_->pose.position.y - map_meta_data_->origin.position.y,
-                                       getYaw(quat));
-            // IF THE MAP IS ROTATED THIS WILL BREAK! WE NEED TO IMPLEMENT ROTATION ALONG WITH TRANSLATION
+            tf2::doTransform(*car_pose_, actual, translation);
+            tf2::doTransform(actual, actual, rotation);
+            tf2::convert(actual.pose.orientation, quatty);
+            start_id_ = env_->SetStart(actual.pose.position.x, actual.pose.position.y, tf2::impl::getYaw(quatty));
             if (goal_pose_ != nullptr)
             {
-                convert(goal_pose_->pose.orientation, quat);
-                goal_id_ = env_->SetGoal(goal_pose_->pose.position.x - map_meta_data_->origin.position.x,
-                                         goal_pose_->pose.position.y - map_meta_data_->origin.position.y,
-                                         getYaw(quat));
+                tf2::doTransform(*goal_pose_, actual, translation);
+                tf2::doTransform(actual, actual, rotation);
+                tf2::convert(actual.pose.orientation, quatty);
+                goal_id_ = env_->SetGoal(actual.pose.position.x, actual.pose.position.y, tf2::impl::getYaw(quatty));
             }
         }
         else
         {
-            convert(goal_pose_->pose.orientation, quat);
-            goal_id_ = env_->SetGoal(goal_pose_->pose.position.x - map_meta_data_->origin.position.x,
-                                     goal_pose_->pose.position.y - map_meta_data_->origin.position.y,
-                                     getYaw(quat));
+            tf2::doTransform(*goal_pose_, actual, translation);
+            tf2::doTransform(actual, actual, rotation);
+            tf2::convert(actual.pose.orientation, quatty);
+            goal_id_ = env_->SetGoal(actual.pose.position.x, actual.pose.position.y, tf2::impl::getYaw(quatty));
             if (car_pose_ != nullptr)
             {
-                convert(car_pose_->pose.orientation, quat);
-                start_id_ = env_->SetStart(car_pose_->pose.position.x - map_meta_data_->origin.position.x,
-                                           car_pose_->pose.position.y - map_meta_data_->origin.position.y,
-                                           getYaw(quat));
+                tf2::doTransform(*car_pose_, actual, translation);
+                tf2::doTransform(actual, actual, rotation);
+                tf2::convert(actual.pose.orientation, quatty);
+                start_id_ = env_->SetStart(actual.pose.position.x, actual.pose.position.y, tf2::impl::getYaw(quatty));
             }
         }
         if (planner_ != nullptr)
@@ -262,15 +281,33 @@ class PlannerNode
             pubPath.poses.reserve(path_->size());
             for (sbpl_xy_theta_pt_t pt : converted_path)
             {
+                // pose initially represents the output from SBPL directly
                 PoseStamped pose;
-                pose.pose.position.x = pt.x + map_meta_data_->origin.position.x;
-                pose.pose.position.y = pt.y + map_meta_data_->origin.position.y;
+                pose.pose.position.x = pt.x;
+                pose.pose.position.y = pt.y;
                 Quaternion quat;
                 quat.setEuler(pt.theta, 0, 0);
                 pose.pose.orientation.w = quat.getW();
                 pose.pose.orientation.x = quat.getX();
                 pose.pose.orientation.y = quat.getY();
                 pose.pose.orientation.z = quat.getZ();
+
+                // create the transforms we need
+                TransformStamped rotation;
+                rotation.transform.rotation = map_meta_data_->origin.orientation;
+
+                TransformStamped translation;
+                Vector3 vec;
+                vec.x = map_meta_data_->origin.position.x;
+                vec.y = map_meta_data_->origin.position.y;
+                vec.z = map_meta_data_->origin.position.z;
+                translation.transform.translation = vec;
+                translation.transform.rotation.w = 1;
+
+                // finally, do the sequence of transforms and append them to the path
+                tf2::doTransform(pose, pose, rotation);
+                tf2::doTransform(pose, pose, translation);
+                pose.header.frame_id = "map";
                 pubPath.poses.push_back(pose);
             }
             ROS_INFO("Solution found! Publishing...");

@@ -1,6 +1,6 @@
 <launch>
 
-    <arg name="path_topic" default="/global_planner/path" />
+    <arg name="path_topic" default="/path" />
     <arg name="start_topic" default="/particle_filter/inferred_pose" />
     <arg name="goal_topic" default="/move_base_simple/goal" />
     <arg name="map" default="/map" />
